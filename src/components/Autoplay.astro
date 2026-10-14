@@ -30,11 +30,15 @@ const t = translator(getLang(Astro));
 	const root = $('[data-autoplay]')!;
 	const toggle = $<HTMLButtonElement>('[data-autoplay-toggle]', root)!;
 	const label = $('[data-autoplay-label]', root)!;
+	const labelNode = label.firstChild as Text | null;
 	const speedButton = $<HTMLButtonElement>('[data-autoplay-speed]', root)!;
+	const speedNode = speedButton.firstChild as Text | null;
 	const { labelPlay = '', labelPause = '', labelReplay = '' } = root.dataset;
 
 	let playing = false;
 	let shownPlaying: boolean | undefined;
+	let shownText = label.textContent ?? '';
+	let shownSpeed = speedButton.textContent ?? '';
 	let speedIndex = 0;
 	let raf = 0;
 	let last = 0;
@@ -49,9 +53,17 @@ const t = translator(getLang(Astro));
 			toggle.setAttribute('aria-pressed', String(playing));
 		}
 		const text = playing ? labelPause : atEnd(top) ? labelReplay : labelPlay;
-		if (label.textContent !== text) label.textContent = text;
+		if (text !== shownText) {
+			shownText = text;
+			if (labelNode) labelNode.nodeValue = text;
+			else label.textContent = text;
+		}
 		const speed = `${SPEEDS[speedIndex]}×`;
-		if (speedButton.textContent !== speed) speedButton.textContent = speed;
+		if (speed !== shownSpeed) {
+			shownSpeed = speed;
+			if (speedNode) speedNode.nodeValue = speed;
+			else speedButton.textContent = speed;
+		}
 	}
 
 	function step(now: number) {
@@ -140,11 +152,7 @@ const t = translator(getLang(Astro));
 		font: inherit;
 		cursor: pointer;
 		opacity: 0.75;
-		transition:
-			opacity 0.2s,
-			color 900ms ease,
-			background-color 900ms ease,
-			border-color 900ms ease;
+		transition: opacity 0.2s;
 	}
 
 	/* Fixed over a page that moves on every frame, the blur has to be redone on every frame:

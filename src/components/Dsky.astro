@@ -427,10 +427,12 @@ const keys = [
 
 	.d {
 		width: 4.1cqw;
+		aspect-ratio: 14 / 24;
+		contain: strict;
 	}
 
 	.d :global(polygon) {
-		fill: var(--el);
+		fill: var(--el-on);
 		opacity: 0.045;
 	}
 
@@ -446,8 +448,7 @@ const keys = [
 	.d[data-d='9'] :global(:is(.s-a, .s-b, .s-c, .s-d, .s-f, .s-g)),
 	.sign[data-s='+'] :global(polygon),
 	.sign[data-s='-'] :global(.s-h) {
-		fill: var(--el-on);
-		opacity: 1;
+		opacity: 0.999;
 	}
 
 	/* Keyboard: a recessed plate, each key in its own well */

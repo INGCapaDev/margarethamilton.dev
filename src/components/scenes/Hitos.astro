@@ -78,7 +78,10 @@ const cards = milestones.map((m) => ({
 		.split('')
 		.flatMap((ch, col) => hollerith(ch).map((row) => `M${colX(col) - 2.75} ${rowY(row) - 6.25}h5.5v12.5h-5.5Z`))
 		.join(''),
-	printed: m.card.split('').map((ch, col) => ({ ch, x: colX(col) })),
+	printedX: m.card
+		.split('')
+		.map((_, col) => colX(col).toFixed(1))
+		.join(' '),
 }));
 
 const N = cards.length;
@@ -117,11 +120,7 @@ const beat = (i: number) =>
 						<path class="stock" d={`M16 0H${W}V${H}H0V16Z`} />
 						<rect x={colX(0) - 4.35} y="60" width={80 * 8.7} height={H - 50} fill="url(#card-digits)" />
 						<g clip-path={`url(#punched-${i})`}>
-							{card.printed.map(({ ch, x }) => (
-								<text class="printed" x={x} y="11">
-									{ch}
-								</text>
-							))}
+							<text class="printed" x={card.printedX} y="11" xml:space="preserve">{card.card}</text>
 							<path class="hole" d={card.holes} />
 						</g>
 					</svg>

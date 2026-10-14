@@ -104,6 +104,7 @@ function measure() {
 const root = document.documentElement;
 const chromeEl = $('[data-chrome]') ?? root;
 const yearEl = $('[data-year-display]');
+const yearText = yearEl?.firstChild as Text | null;
 let shownYear = Number(yearEl?.textContent) || 1936;
 let targetYear = shownYear;
 let yearRaf = 0;
@@ -160,12 +161,12 @@ function frame() {
 		const bottom = top + scene.height;
 		if (top <= vh / 2 && bottom > vh / 2) active = scene;
 
-		const far = bottom < -vh || top > vh * 2;
-		if (far !== scene.far) {
-			scene.far = far;
-			scene.el.classList.toggle('is-far', far);
+		const offscreen = bottom <= 0 || top >= vh;
+		if (offscreen !== scene.far) {
+			scene.far = offscreen;
+			scene.el.classList.toggle('is-far', offscreen);
 		}
-		if (far) continue;
+		if (bottom < -vh || top > vh * 2) continue;
 
 		const span = scene.height - vh;
 		const p = span > 0 ? clamp(-top / span) : top <= 0 ? 1 : 0;
@@ -214,12 +215,18 @@ function applyChrome(scene: Scene) {
 	if (year) setYear(year);
 }
 
+function writeYear(value: number) {
+	const text = String(value);
+	if (yearText) yearText.nodeValue = text;
+	else if (yearEl) yearEl.textContent = text;
+}
+
 function setYear(year: number) {
 	if (!yearEl || year === targetYear) return;
 	targetYear = year;
 	if (reducedMotion) {
 		shownYear = year;
-		yearEl.textContent = String(year);
+		writeYear(year);
 		return;
 	}
 	cancelAnimationFrame(yearRaf);
@@ -227,7 +234,7 @@ function setYear(year: number) {
 		const diff = targetYear - shownYear;
 		if (diff === 0) return;
 		shownYear += Math.sign(diff) * Math.max(1, Math.round(Math.abs(diff) / 6));
-		yearEl.textContent = String(shownYear);
+		writeYear(shownYear);
 		yearRaf = requestAnimationFrame(step);
 	};
 	step();

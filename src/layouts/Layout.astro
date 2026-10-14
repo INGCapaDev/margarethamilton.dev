@@ -453,9 +453,7 @@ const jsonLd = {
 		text-decoration: none;
 		opacity: 0.55;
 		text-shadow: 0 0 10px rgb(0 0 0 / 0.25);
-		transition:
-			opacity 0.2s,
-			color 900ms ease;
+		transition: opacity 0.2s;
 	}
 
 	.lang a:hover,
@@ -473,19 +471,19 @@ const jsonLd = {
 		left: var(--gutter);
 		bottom: clamp(0.75rem, 3vh, 2rem);
 		z-index: 50;
+		width: 5ch;
+		height: 1.5em;
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
 		font-variant-numeric: tabular-nums;
 		color: var(--fg);
 		opacity: 0.75;
-		transition: color 900ms ease;
 		pointer-events: none;
-		contain: layout style paint;
+		contain: strict;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.backdrop,
-		.year {
+		.backdrop {
 			transition: none;
 		}
 	}

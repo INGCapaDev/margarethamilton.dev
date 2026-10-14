@@ -166,7 +166,6 @@ const awards = [
 		}),
 	},
 	{
-		at: HTI,
 		logo: { src: logoAwc, pad: '0.2em' },
 		title: 'Augusta Ada Lovelace Award',
 		issuer: t({
@@ -396,7 +395,7 @@ const icons: Record<string, string> = {
 								<ul class="list">
 									{
 										awards.map((award) => (
-											<li class="entry" data-beat={b(award.at)}>
+											<li class="entry" data-beat={award.at && b(award.at)}>
 												<div class="clip">
 													<div class="row">
 														<span class="logo" style={logoStyle(award.logo)}>
@@ -698,6 +697,7 @@ const icons: Record<string, string> = {
 		padding: 0.35em 1em;
 		background: #fff;
 		border-bottom: 1px solid var(--li-line);
+		contain: layout style;
 	}
 
 	.in {
@@ -771,6 +771,7 @@ const icons: Record<string, string> = {
 		top: -0.15em;
 		left: 55%;
 		display: grid;
+		contain: layout style;
 	}
 
 	.badge > span {
@@ -818,6 +819,7 @@ const icons: Record<string, string> = {
 		background: #fff;
 		border-radius: 0.6em;
 		box-shadow: 0 0 0 1px var(--li-line);
+		contain: content;
 	}
 
 	.card h4 {
@@ -940,19 +942,14 @@ const icons: Record<string, string> = {
 	:global(.js) .swap > * {
 		position: absolute;
 		opacity: 0;
-		visibility: hidden;
-		transition:
-			opacity 0.3s ease,
-			visibility 0s linear 0.3s;
+		pointer-events: none;
+		transition: opacity 0.3s ease;
 	}
 
 	:global(.js) .swap > .is-on {
 		position: static;
 		opacity: 1;
-		visibility: visible;
-		transition:
-			opacity 0.5s ease 0.2s,
-			visibility 0s;
+		transition: opacity 0.5s ease 0.2s;
 	}
 
 	.list {
@@ -968,6 +965,7 @@ const icons: Record<string, string> = {
 		padding: 0.85em 0.6em;
 		border-radius: 0.5em;
 		box-shadow: inset 0 -1px var(--li-line);
+		contain: layout style;
 	}
 
 	.list > :last-child .row,
@@ -1107,6 +1105,7 @@ const icons: Record<string, string> = {
 		bottom: 0.8em;
 		display: grid;
 		pointer-events: none;
+		contain: layout style;
 	}
 
 	.toast {
@@ -1125,6 +1124,7 @@ const icons: Record<string, string> = {
 		transition:
 			transform 0.5s var(--ease-out),
 			opacity 0.3s ease;
+		contain: layout style;
 	}
 
 	.toast.is-on {

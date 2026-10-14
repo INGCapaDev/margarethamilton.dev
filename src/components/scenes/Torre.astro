@@ -168,7 +168,6 @@ const slabs = binders.map((name, i) => ({
 
 	.slab {
 		--slab-t: clamp(0, calc((var(--p, 1) - var(--d)) / 0.06), 1);
-		--p: 0;
 		position: relative;
 		flex: 0 0 auto;
 		width: 100%;
@@ -185,6 +184,7 @@ const slabs = binders.map((name, i) => ({
 	}
 
 	.slab .mono {
+		--p: 0;
 		position: absolute;
 		left: 14px;
 		top: 50%;

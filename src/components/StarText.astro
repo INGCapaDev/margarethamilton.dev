@@ -107,6 +107,31 @@ const words = text.split(' ').map((word) =>
 		inherits: true;
 		initial-value: 0;
 	}
+	@property --dx {
+		syntax: '<length>';
+		inherits: true;
+		initial-value: 0px;
+	}
+	@property --dy {
+		syntax: '<length>';
+		inherits: true;
+		initial-value: 0px;
+	}
+	@property --ax {
+		syntax: '<length>';
+		inherits: true;
+		initial-value: 0px;
+	}
+	@property --ay {
+		syntax: '<length>';
+		inherits: true;
+		initial-value: 0px;
+	}
+	@property --mag {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 0.8;
+	}
 
 	.w {
 		display: inline-block;
@@ -126,38 +151,34 @@ const words = text.split(' ').map((word) =>
 		display: inline-block;
 	}
 
-	/* The light condenses into the letter: it arrives blurred and bright, then settles */
+	/* The light condenses into the letter: it arrives scaled up under the star's flash, then settles */
 	.g {
 		display: inline-block;
-		color: rgb(236 236 230 / var(--g));
-		text-shadow:
-			0 0 0.42em rgb(var(--tint, 255 255 255) / calc((1 - var(--g)) * var(--f))),
-			0 0 0.1em rgb(255 255 255 / calc((1 - var(--g)) * var(--f)));
+		color: #ecece6;
+		opacity: var(--g);
 		transform: scale(calc(1.14 - 0.14 * var(--g)));
 		transform-origin: 50% 60%;
 	}
 
 	/* The star: a sharp point that travels along a gentle curve and flashes on arrival */
 	.l::before {
-		--size: calc((1.2 + var(--mag, 0.8) * 1.8) * 1px);
 		--arc: sin(calc(var(--m) * 180deg));
 		content: '';
 		position: absolute;
 		left: 50%;
 		top: 55%;
-		width: var(--size);
-		height: var(--size);
-		margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+		width: 3px;
+		height: 3px;
+		margin: -1.5px 0 0 -1.5px;
 		border-radius: 50%;
 		background: rgb(var(--tint, 255 255 255));
-		box-shadow: 0 0 calc(var(--size) * (0.8 + 5 * var(--f))) calc(var(--size) * 0.6 * var(--f))
-			rgb(var(--tint, 255 255 255) / calc(0.35 + 0.45 * var(--f)));
+		box-shadow: 0 0 10px 1.2px rgb(var(--tint, 255 255 255) / 0.7);
 		opacity: calc((var(--mag, 0.8) + (1 - var(--mag, 0.8)) * var(--m)) * (1 - var(--out)));
 		transform: translate(
 				calc(var(--dx, 0px) * (1 - var(--m)) + var(--ax, 0px) * var(--arc)),
 				calc(var(--dy, 0px) * (1 - var(--m)) + var(--ay, 0px) * var(--arc))
 			)
-			scale(calc(1 + 1.6 * var(--f)));
+			scale(calc((0.4 + var(--mag, 0.8) * 0.6) * (1 + 1.6 * var(--f))));
 		pointer-events: none;
 	}
 

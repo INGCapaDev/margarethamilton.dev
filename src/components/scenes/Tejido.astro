@@ -218,9 +218,13 @@ const arc = (x: number, back: boolean) =>
 	.module {
 		--mod-k: clamp(0, calc((var(--p, 1) - 0.01 - var(--i) * 0.017) / 0.035), 1);
 		--mod-e: calc(var(--mod-k) * var(--mod-k) * (3 - 2 * var(--mod-k)));
-		--p: 0;
 		opacity: var(--mod-k);
 		transform: translateY(calc((var(--mod-e) - 1) * 130px));
+	}
+
+	.module > *,
+	.rope > * {
+		--p: 0;
 	}
 
 	.case {
@@ -279,7 +283,6 @@ const arc = (x: number, back: boolean) =>
 
 	.rope {
 		--wire-w: clamp(0, calc((var(--p, 1) - 0.27) / 0.2), 1);
-		--p: 0;
 		inset: 14vh var(--gutter) auto;
 		width: calc(100% - 2 * var(--gutter));
 		height: auto;
