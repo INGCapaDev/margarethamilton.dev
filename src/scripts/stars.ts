@@ -32,9 +32,7 @@ function random(seed: number) {
 }
 
 /** Hungarian algorithm: for each row (letter), the column (star) that minimizes the total cost */
-function assign(cost: number[][]): number[] {
-	const n = cost.length;
-	const m = cost[0].length;
+function assign(cost: Float32Array, n: number, m: number): number[] {
 	const u = new Float64Array(n + 1);
 	const v = new Float64Array(m + 1);
 	const p = new Int32Array(m + 1);
@@ -48,11 +46,13 @@ function assign(cost: number[][]): number[] {
 		do {
 			used[j0] = 1;
 			const i0 = p[j0];
+			const rowOffset = (i0 - 1) * m - 1;
+			const u0 = u[i0];
 			let delta = Infinity;
 			let j1 = 0;
 			for (let j = 1; j <= m; j++) {
 				if (used[j]) continue;
-				const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+				const cur = cost[rowOffset + j] - u0 - v[j];
 				if (cur < minv[j]) {
 					minv[j] = cur;
 					way[j] = j0;
@@ -120,7 +120,7 @@ export function starfield(stage: HTMLElement, { seed = 1969, region = [0.03, 0.4
 		const { width, height } = stage.getBoundingClientRect();
 		const top = height * region[0];
 		let bottom = height * region[1];
-		let earth: { x: number; y: number; r: number } | undefined;
+		let earth: { x: number; y: number; r2: number } | undefined;
 
 		if (photo) {
 			// The photo is square and cropped with object-fit: cover
@@ -128,12 +128,18 @@ export function starfield(stage: HTMLElement, { seed = 1969, region = [0.03, 0.4
 			const ox = (width - side) * PHOTO_POSITION.x;
 			const oy = (height - side) * PHOTO_POSITION.y;
 			const horizon = oy + EARTH.horizon * side;
-			earth = { x: ox + EARTH.cx * side, y: oy + EARTH.cy * side, r: EARTH.r * side * 1.3 };
+			const r = EARTH.r * side * 1.3;
+			earth = { x: ox + EARTH.cx * side, y: oy + EARTH.cy * side, r2: r * r };
 			bottom = Math.min(bottom, horizon - 14);
 			stage.style.setProperty('--horizon', `${Math.round(horizon)}px`);
 		}
 
-		const visible = (x: number, y: number) => !earth || Math.hypot(x - earth.x, y - earth.y) > earth.r;
+		const visible = (x: number, y: number) => {
+			if (!earth) return true;
+			const dx = x - earth.x;
+			const dy = y - earth.y;
+			return dx * dx + dy * dy > earth.r2;
+		};
 		const star = (x: number, y: number): Star => ({
 			x,
 			y,
@@ -149,8 +155,21 @@ export function starfield(stage: HTMLElement, { seed = 1969, region = [0.03, 0.4
 			if (visible(x, y)) candidates.push(star(x, y));
 		}
 
+		const n = letters.length;
+		const m = candidates.length;
 		const targets = letters.map((l) => ({ x: l.offsetLeft + l.offsetWidth / 2, y: l.offsetTop + l.offsetHeight * 0.55 }));
-		const match = assign(targets.map((t) => candidates.map((c) => Math.hypot(c.x - t.x, c.y - t.y))));
+		const cost = new Float32Array(n * m);
+		for (let i = 0; i < n; i++) {
+			const tx = targets[i].x;
+			const ty = targets[i].y;
+			const rowOffset = i * m;
+			for (let j = 0; j < m; j++) {
+				const dx = candidates[j].x - tx;
+				const dy = candidates[j].y - ty;
+				cost[rowOffset + j] = Math.sqrt(dx * dx + dy * dy);
+			}
+		}
+		const match = assign(cost, n, m);
 
 		letters.forEach((letter, i) => {
 			const c = candidates[match[i]];

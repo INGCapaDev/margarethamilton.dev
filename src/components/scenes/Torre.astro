@@ -118,6 +118,16 @@ const slabs = binders.map((name, i) => ({
 </section>
 
 <style>
+	@property --tower-p {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 1;
+	}
+	@property --photo-p {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 1;
+	}
 	@property --slab-t {
 		syntax: '<number>';
 		inherits: false;
@@ -148,6 +158,8 @@ const slabs = binders.map((name, i) => ({
 	}
 
 	.visual {
+		--tower-p: min(0.43, var(--p, 1));
+		--photo-p: max(0.4, var(--p, 1));
 		position: relative;
 		height: 88vh;
 		height: 88svh;
@@ -155,19 +167,21 @@ const slabs = binders.map((name, i) => ({
 		place-items: end center;
 	}
 
-	/* The tower rises listing by listing */
+	/* The tower rises listing by listing; after p = 0.43 it is hidden so its 26 slabs stop restyling */
 	.tower {
+		--p: 0;
+		--photo-p: 0;
 		display: flex;
 		flex-direction: column-reverse;
 		align-items: center;
 		width: min(70%, 320px);
 		height: 100%;
 		padding-bottom: 2%;
-		opacity: calc(1 - clamp(0, (var(--p, 1) - 0.4) / 0.03, 1));
+		opacity: calc(1 - clamp(0, (var(--tower-p) - 0.4) / 0.03, 1));
 	}
 
 	.slab {
-		--slab-t: clamp(0, calc((var(--p, 1) - var(--d)) / 0.06), 1);
+		--slab-t: clamp(0, calc((var(--tower-p) - var(--d)) / 0.06), 1);
 		position: relative;
 		flex: 0 0 auto;
 		width: 100%;
@@ -184,7 +198,7 @@ const slabs = binders.map((name, i) => ({
 	}
 
 	.slab .mono {
-		--p: 0;
+		--tower-p: 0;
 		position: absolute;
 		left: 14px;
 		top: 50%;
@@ -197,18 +211,20 @@ const slabs = binders.map((name, i) => ({
 	}
 
 	.photo {
+		--p: 0;
+		--tower-p: 0;
 		position: absolute;
 		inset: 0;
 		display: grid;
 		place-items: center;
 		overflow: hidden;
-		opacity: clamp(0, (var(--p, 1) - 0.4) / 0.02, 1);
+		opacity: clamp(0, (var(--photo-p) - 0.4) / 0.02, 1);
 	}
 
 	/* Scroll zoom: first the tower, then her */
 	.zoom {
-		--z1: clamp(0, (var(--p, 1) - 0.56) / 0.1, 1);
-		--z2: clamp(0, (var(--p, 1) - 0.86) / 0.08, 1);
+		--z1: clamp(0, (var(--photo-p) - 0.56) / 0.1, 1);
+		--z2: clamp(0, (var(--photo-p) - 0.86) / 0.08, 1);
 		height: 100%;
 		transform-origin: 66% 38%;
 		transform: scale(calc(1 + 0.55 * var(--z1) - 0.55 * var(--z2)));
@@ -217,7 +233,7 @@ const slabs = binders.map((name, i) => ({
 
 	/* The photo develops as in a darkroom */
 	.zoom img {
-		--dev: clamp(0, (var(--p, 1) - 0.4) / 0.08, 1);
+		--dev: clamp(0, (var(--photo-p) - 0.4) / 0.08, 1);
 		height: 100%;
 		width: auto;
 		max-width: none;

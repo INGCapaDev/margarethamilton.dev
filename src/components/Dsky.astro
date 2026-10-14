@@ -300,9 +300,7 @@ const keys = [
 		box-shadow:
 			inset 0 0.35cqw 0.45cqw rgb(0 0 0 / 0.45),
 			inset 0 -0.08cqw 0 rgb(255 255 255 / 0.3);
-		transition:
-			color 0.15s,
-			box-shadow 0.15s;
+		contain: layout style;
 	}
 
 	/* The bulb behind the lens: a hot centre fading to the edges */
@@ -318,7 +316,6 @@ const keys = [
 	}
 
 	.lamp.is-lit {
-		z-index: 1;
 		color: #3b2600;
 		text-shadow: 0 0 0.3cqw rgb(255 240 200 / 0.8);
 		box-shadow:
@@ -385,9 +382,7 @@ const keys = [
 		background: rgb(108 245 154 / 0.07);
 		color: transparent;
 		box-shadow: none;
-		transition:
-			background-color 0.08s,
-			box-shadow 0.08s;
+		contain: layout style;
 	}
 
 	.acty.is-lit {
@@ -472,6 +467,7 @@ const keys = [
 	/* Black plastic keys with white legends, slightly dished on top */
 	.key {
 		position: relative;
+		z-index: 0;
 		display: grid;
 		place-items: center;
 		border-radius: 0.75cqw;
@@ -488,9 +484,8 @@ const keys = [
 			inset 0 -0.18cqw 0.12cqw rgb(0 0 0 / 0.65),
 			0 0.55cqw 0 #050606,
 			0 0.75cqw 0.8cqw rgb(0 0 0 / 0.5);
-		transition:
-			transform 0.08s,
-			box-shadow 0.08s;
+		transition: transform 0.08s;
+		contain: layout style;
 	}
 
 	.key::before {

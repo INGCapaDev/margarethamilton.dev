@@ -22,8 +22,19 @@ export function createDsky(root: HTMLElement) {
 		fields.set(el.dataset.field as Field, { sign: $('.sign', el), cells: $$('.d:not(.sign)', el) }),
 	);
 	const lamps = $$('[data-lamp]', root);
+	const keys = new Map($$('[data-key]', root).map((el) => [el.dataset.key!, el]));
 	const acty = $('[data-acty]', root);
 	let actyTimer = 0;
+	let pressId = 0;
+	let pressedKey: HTMLElement | undefined;
+
+	const clearPressed = () => {
+		pressId++;
+		if (pressedKey) {
+			pressedKey.classList.remove('is-pressed');
+			pressedKey = undefined;
+		}
+	};
 
 	const write = (el: HTMLElement, key: 'd' | 's', value: string) => {
 		if (el.dataset[key] !== value) el.dataset[key] = value;
@@ -43,6 +54,7 @@ export function createDsky(root: HTMLElement) {
 	}
 
 	function show(state: DskyState) {
+		clearPressed();
 		for (const field of ['prog', 'verb', 'noun', 'r1', 'r2', 'r3'] as const) {
 			if (state[field] !== undefined) set(field, state[field]);
 		}
@@ -63,6 +75,7 @@ export function createDsky(root: HTMLElement) {
 	};
 	new IntersectionObserver(([entry]) => {
 		onScreen = entry.isIntersecting;
+		if (!onScreen) clearPressed();
 		blink();
 	}).observe(root);
 
@@ -74,13 +87,23 @@ export function createDsky(root: HTMLElement) {
 
 	/** Presses a sequence of keys, as the astronaut would */
 	async function press(sequence: string[], delay = 170) {
-		if (reducedMotion) return;
+		clearPressed();
+		if (reducedMotion || !onScreen) return;
+		const id = pressId;
 		for (const k of sequence) {
-			const key = $(`[data-key="${k}"]`, root);
-			key?.classList.add('is-pressed');
+			const key = keys.get(k);
+			if (key) {
+				pressedKey = key;
+				key.classList.add('is-pressed');
+			}
 			await new Promise((r) => setTimeout(r, delay * 0.6));
-			key?.classList.remove('is-pressed');
+			if (id !== pressId) return;
+			if (key) {
+				key.classList.remove('is-pressed');
+				pressedKey = undefined;
+			}
 			await new Promise((r) => setTimeout(r, delay * 0.4));
+			if (id !== pressId) return;
 		}
 	}
 
