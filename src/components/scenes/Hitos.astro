@@ -102,28 +102,31 @@ const beat = (i: number) =>
 		<div class="deck" data-scale={SCALE} data-offset={OFFSET} aria-hidden="true">
 			{
 				cards.map((card, i) => (
-					<svg class="card" viewBox={`0 0 ${W} ${H}`} data-len={card.card.length}>
-						<defs>
-							<clipPath id={`punched-${i}`}>
-								<rect class="punched" width="0" height={H} />
-							</clipPath>
+					<div class="card" data-len={card.card.length}>
+						<svg class="sheet" viewBox={`0 0 ${W} ${H}`}>
 							{i === 0 && (
-								<pattern id="card-digits" width="8.7" height={H} patternUnits="userSpaceOnUse" x={colX(0) - 4.35}>
-									{ROWS.slice(2).map((row) => (
-										<text x="4.35" y={rowY(row) + 2.6}>
-											{row}
-										</text>
-									))}
-								</pattern>
+								<defs>
+									<pattern id="card-digits" width="8.7" height={H} patternUnits="userSpaceOnUse" x={colX(0) - 4.35}>
+										{ROWS.slice(2).map((row) => (
+											<text x="4.35" y={rowY(row) + 2.6}>
+												{row}
+											</text>
+										))}
+									</pattern>
+								</defs>
 							)}
-						</defs>
-						<path class="stock" d={`M16 0H${W}V${H}H0V16Z`} />
-						<rect x={colX(0) - 4.35} y="60" width={80 * 8.7} height={H - 50} fill="url(#card-digits)" />
-						<g clip-path={`url(#punched-${i})`}>
-							<text class="printed" x={card.printedX} y="11" xml:space="preserve">{card.card}</text>
-							<path class="hole" d={card.holes} />
-						</g>
-					</svg>
+							<path class="stock" d={`M16 0H${W}V${H}H0V16Z`} />
+							<rect x={colX(0) - 4.35} y="60" width={80 * 8.7} height={H - 50} fill="url(#card-digits)" />
+						</svg>
+						<div class="punch">
+							<div class="ink">
+								<svg viewBox={`0 0 ${W} ${H}`}>
+									<text class="printed" x={card.printedX} y="11" xml:space="preserve">{card.card}</text>
+									<path class="hole" d={card.holes} />
+								</svg>
+							</div>
+						</div>
+					</div>
 				))
 			}
 		</div>
@@ -147,39 +150,59 @@ const beat = (i: number) =>
 	import { $, $$ } from '../../scripts/dom';
 	import { clamp, onProgress } from '../../scripts/scroll';
 
-	// Cards move with an inline transform and get punched column by column by widening a clip:
-	// a single change per frame, instead of restyling every hole of every card
+	// Each card is a still sheet (stock and digits, rasterized once) with the ink on top (printed text
+	// and holes). Cards move with an inline transform on an HTML wrapper: on the <svg> itself, every
+	// change would lay out and repaint its text. While a card is being punched, its ink shows through
+	// a window that slides right while the ink inside slides back by the same amount: two composited
+	// translations per column, with no repaint
 	const scene = $('[data-scene="hitos"]')!;
 	const deck = $('.deck', scene)!;
 	const scale = Number(deck.dataset.scale);
 	const offset = Number(deck.dataset.offset);
-	const cards = $$<SVGSVGElement>('.card', deck).map((el) => ({
+	const cards = $$('.card', deck).map((el) => ({
 		el,
-		punched: $<SVGRectElement>('.punched', el)!,
+		punch: $('.punch', el)!,
+		ink: $('.ink', el)!,
 		columns: Number(el.dataset.len),
+		enter: -1,
+		age: -1,
 		transform: '',
-		width: '',
+		cols: -1,
+		state: '',
 	}));
 
 	onProgress(scene, (p) => {
 		const q = p * scale + offset;
-		cards.forEach((card, i) => {
+		for (let i = 0; i < cards.length; i++) {
+			const card = cards[i];
 			const t = clamp(q - i);
 			const enter = clamp(t / 0.25);
 			const age = clamp(q - i - 1, 0, 6);
-			const transform = `translate(calc(${((1 - enter) * 110).toFixed(2)}vw + ${(age * -0.6).toFixed(3)}%), ${(age * -2.4).toFixed(3)}%) rotate(${((1 - enter) * 8 + age * -0.5).toFixed(3)}deg)`;
-			if (transform !== card.transform) {
-				card.transform = transform;
-				card.el.style.transform = transform;
+			// Cards still waiting or already settled skip building the string
+			if (enter !== card.enter || age !== card.age) {
+				card.enter = enter;
+				card.age = age;
+				const transform = `translate(calc(${((1 - enter) * 110).toFixed(2)}vw + ${(age * -0.6).toFixed(3)}%), ${(age * -2.4).toFixed(3)}%) rotate(${((1 - enter) * 8 + age * -0.5).toFixed(3)}deg)`;
+				if (transform !== card.transform) {
+					card.transform = transform;
+					card.el.style.transform = transform;
+				}
 			}
-			// Columns are 8.7 units wide and start at 20.65, the left edge of the first one
+
 			const cols = Math.round(clamp((t - 0.22) / 0.6) * card.columns);
-			const width = (20.65 + cols * 8.7).toFixed(1);
-			if (width !== card.width) {
-				card.width = width;
-				card.punched.setAttribute('width', width);
+			if (cols === card.cols) continue;
+			card.cols = cols;
+			const state = cols === 0 ? '' : cols < card.columns ? 'is-punching' : 'is-punched';
+			if (state !== card.state) {
+				if (card.state) card.el.classList.remove(card.state);
+				if (state) card.el.classList.add(state);
+				card.state = state;
 			}
-		});
+			// Columns are 8.7 units wide and start at 20.65, the left edge of the first one, on a 738-unit card
+			const shift = state === 'is-punching' ? ((1 - (20.65 + cols * 8.7) / 738) * 100).toFixed(3) : '';
+			card.punch.style.transform = shift && `translateX(-${shift}%)`;
+			card.ink.style.transform = shift && `translateX(${shift}%)`;
+		}
 	});
 </script>
 
@@ -204,12 +227,41 @@ const beat = (i: number) =>
 	.card {
 		position: absolute;
 		inset: 0;
-		width: 100%;
-		height: 100%;
-		overflow: visible;
 		transform: translate(110vw, 0) rotate(8deg);
 		filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.12)) drop-shadow(0 8px 18px rgb(0 0 0 / 0.08));
 		will-change: transform;
+	}
+
+	.card svg {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.punch,
+	.ink {
+		position: absolute;
+		inset: 0;
+	}
+
+	/* No ink before the first column. While punching, the ink gets its own layers clipped by the window;
+	   once punched, it goes back into the card's layer so settled cards cost a single layer each */
+	.punch {
+		visibility: hidden;
+	}
+
+	.is-punching .punch {
+		overflow: hidden;
+	}
+
+	.is-punching :is(.punch, .ink) {
+		will-change: transform;
+	}
+
+	:is(.is-punching, .is-punched) .punch {
+		visibility: visible;
 	}
 
 	.stock {
