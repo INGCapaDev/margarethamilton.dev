@@ -21,7 +21,7 @@ const t = translator(getLang(Astro));
 
 <script>
 	import { $ } from '../scripts/dom';
-	import { onFrame, onResize, viewportHeight } from '../scripts/scroll';
+	import { maxScroll, onFrame, viewportHeight } from '../scripts/scroll';
 
 	// Viewport heights per second at 1×: the whole story takes about three minutes
 	const BASE_SPEED = 0.4;
@@ -31,27 +31,24 @@ const t = translator(getLang(Astro));
 	const toggle = $<HTMLButtonElement>('[data-autoplay-toggle]', root)!;
 	const label = $('[data-autoplay-label]', root)!;
 	const speedButton = $<HTMLButtonElement>('[data-autoplay-speed]', root)!;
-	const lastScene = Array.from(document.querySelectorAll<HTMLElement>('[data-scene]')).at(-1)!;
+	const { labelPlay = '', labelPause = '', labelReplay = '' } = root.dataset;
 
 	let playing = false;
+	let shownPlaying: boolean | undefined;
 	let speedIndex = 0;
 	let raf = 0;
 	let last = 0;
 	let y = 0;
 
-	// Where the film ends: the last scene fully played, before the credits. Read once per resize:
-	// render() runs on every scrolled frame, and reading the layout there would force it each time
-	let endY: number | undefined;
-	const end = () => (endY ??= lastScene.offsetTop + lastScene.offsetHeight - viewportHeight());
-	const atEnd = (top = window.scrollY) => top >= end() - 2;
-	onResize(() => (endY = undefined));
+	const atEnd = (top = window.scrollY) => top >= maxScroll() - 2;
 
 	function render(top?: number) {
-		root.classList.toggle('is-playing', playing);
-		const pressed = String(playing);
-		if (toggle.getAttribute('aria-pressed') !== pressed) toggle.setAttribute('aria-pressed', pressed);
-		const { labelPlay, labelPause, labelReplay } = root.dataset;
-		const text = (playing ? labelPause : atEnd(top) ? labelReplay : labelPlay) ?? '';
+		if (playing !== shownPlaying) {
+			shownPlaying = playing;
+			root.classList.toggle('is-playing', playing);
+			toggle.setAttribute('aria-pressed', String(playing));
+		}
+		const text = playing ? labelPause : atEnd(top) ? labelReplay : labelPlay;
 		if (label.textContent !== text) label.textContent = text;
 		const speed = `${SPEEDS[speedIndex]}×`;
 		if (speedButton.textContent !== speed) speedButton.textContent = speed;
@@ -64,9 +61,10 @@ const t = translator(getLang(Astro));
 		// Capped so a hidden tab doesn't jump ahead when it comes back
 		const dt = Math.min(now - last, 100) / 1000;
 		last = now;
-		y = Math.min(y + BASE_SPEED * SPEEDS[speedIndex] * viewportHeight() * dt, end());
+		const end = maxScroll();
+		y = Math.min(y + BASE_SPEED * SPEEDS[speedIndex] * viewportHeight() * dt, end);
 		window.scrollTo({ top: y, behavior: 'instant' });
-		if (y >= end()) return stop();
+		if (y >= end) return stop();
 		raf = requestAnimationFrame(step);
 	}
 
@@ -122,6 +120,7 @@ const t = translator(getLang(Astro));
 		gap: 0.25rem;
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
+		contain: layout style;
 	}
 
 	/* Without the scene engine there's nothing to play */

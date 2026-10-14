@@ -35,7 +35,14 @@ const notes = excerpts.flatMap((excerpt) =>
 );
 ---
 
-<section class="scene codigo" data-scene="codigo" data-theme="paper" data-year="1969" style="--len: 1150">
+<section
+	class="scene codigo"
+	data-scene="codigo"
+	data-theme="paper"
+	data-year="1969"
+	data-p-range="0.73 0.79"
+	style="--len: 1150"
+>
 	<div class="stage">
 		<p class="intro beat" data-beat="0 0.07">
 			{t({ es: 'El código del Apollo 11 está en GitHub. Y tiene sentido del humor.', en: 'The Apollo 11 code is on GitHub. And it has a sense of humor.' })}
@@ -148,73 +155,104 @@ const notes = excerpts.flatMap((excerpt) =>
 
 <script>
 	import { $, $$ } from '../../scripts/dom';
-	import { onProgress, onResize, segment, viewportHeight } from '../../scripts/scroll';
+	import { onProgress, onWarm, segment, viewportHeight } from '../../scripts/scroll';
 
 	const scene = $('[data-scene="codigo"]')!;
 	const paper = $('[data-paper]', scene)!;
 	const page = $('[data-page]', scene)!;
-	const marks = new Map($$('[data-mark]', scene).map((mark) => [mark.dataset.mark!, mark]));
+	const marks = new Map($$('[data-mark]', scene).map((mark) => [mark.dataset.mark!, { el: mark, on: false }]));
 	const groups = $$('[data-note]', scene).map((note) => ({
 		note,
 		lines: $$(`[data-hl="${note.dataset.note}"]`, scene),
 		top: 0,
 		bottom: 0,
+		wasHl: false,
 	}));
 
 	// Highlights and transforms don't move anything in the layout: the positions are read once
-	// per resize, not on every frame right after --p has invalidated the scene's style
-	let layout: { paper: number; view: number; page: number; signature: number } | undefined;
-	const measure = () => {
+	// when the scene warms up or resizes, never right after --p has invalidated styles
+	let paperHeight = 0;
+	let viewHeight = 0;
+	let pageHeight = 0;
+	let mhCenter = 0;
+
+	onWarm(scene, () => {
 		for (const group of groups) {
 			group.top = group.lines[0].offsetTop;
 			group.bottom = group.lines[group.lines.length - 1].offsetTop;
 		}
-		const mh = marks.get('mh')!;
-		layout = {
-			paper: paper.offsetHeight,
-			view: page.parentElement!.clientHeight,
-			page: page.offsetHeight,
-			signature: mh.offsetTop + mh.offsetHeight / 2,
-		};
-		return layout;
+		const mh = marks.get('mh')!.el;
+		paperHeight = paper.offsetHeight;
+		viewHeight = page.parentElement!.clientHeight;
+		pageHeight = page.offsetHeight;
+		mhCenter = mh.offsetTop + mh.offsetHeight / 2;
+		lastY = NaN;
+		lastPageY = NaN;
+		lastActive = null;
+	});
+
+	let lastY = NaN;
+	let lastPageY = NaN;
+	let lastActive: (typeof groups)[number] | undefined | null = null;
+
+	const setMark = (id: string, on: boolean) => {
+		const m = marks.get(id)!;
+		if (m.on !== on) {
+			m.on = on;
+			m.el.classList.toggle('is-on', on);
+		}
 	};
-	const invalidate = () => (layout = undefined);
-	onResize(invalidate);
-	document.fonts?.ready.then(invalidate);
 
 	onProgress(scene, (p) => {
-		const { paper: paperHeight, view: viewHeight, page: pageHeight, signature: mh } = layout ?? measure();
 		const vh = viewportHeight();
 		const readLine = vh * 0.42;
 		const start = vh * 0.92;
 		const end = -paperHeight - vh * 0.05;
-		const y = start + (end - start) * segment(p, 0.03, 0.72);
-		paper.style.transform = `translate3d(0, ${y.toFixed(1)}px, 0)`;
+		const y = Math.round((start + (end - start) * segment(p, 0.03, 0.72)) * 10) / 10;
+		if (y !== lastY) {
+			lastY = y;
+			paper.style.transform = `translate3d(0, ${y}px, 0)`;
 
-		const read = readLine - y;
-		let active: (typeof groups)[number] | undefined;
-		for (const group of groups) {
-			if (group.top <= read + 24 && group.bottom + vh * 0.16 >= read) active = group;
-		}
-		for (const group of groups) {
-			const on = group === active;
-			group.note.classList.toggle('is-on', on);
-			group.lines.forEach((line) => line.classList.toggle('is-hl', on || line.classList.contains('was-hl')));
-			if (on) group.lines.forEach((line) => line.classList.add('was-hl'));
+			const read = readLine - y;
+			let active: (typeof groups)[number] | undefined;
+			for (const group of groups) {
+				if (group.top <= read + 24 && group.bottom + vh * 0.16 >= read) active = group;
+			}
+			if (active !== lastActive) {
+				lastActive = active;
+				for (const group of groups) {
+					const on = group === active;
+					group.note.classList.toggle('is-on', on);
+					if (on && !group.wasHl) {
+						group.wasHl = true;
+						for (const line of group.lines) line.classList.add('is-hl', 'was-hl');
+					}
+				}
+			}
 		}
 
 		// The repository window: first the two folders, then it scrolls down to Margaret's signature
-		const signature = mh - viewHeight * 0.5;
+		const signature = mhCenter - viewHeight * 0.5;
 		const target = Math.min(Math.max(signature, 0), pageHeight - viewHeight);
 		const s = segment(p, 0.86, 0.95);
-		page.style.transform = `translate3d(0, ${(-target * s * s * (3 - 2 * s)).toFixed(1)}px, 0)`;
-		marks.get('cm')!.classList.toggle('is-on', p >= 0.79 && p < 0.87);
-		marks.get('lm')!.classList.toggle('is-on', p >= 0.8 && p < 0.87);
-		marks.get('mh')!.classList.toggle('is-on', p >= 0.94);
+		const pageY = Math.round(-target * s * s * (3 - 2 * s) * 10) / 10;
+		if (pageY !== lastPageY) {
+			lastPageY = pageY;
+			page.style.transform = `translate3d(0, ${pageY}px, 0)`;
+		}
+		setMark('cm', p >= 0.79 && p < 0.87);
+		setMark('lm', p >= 0.8 && p < 0.87);
+		setMark('mh', p >= 0.94);
 	});
 </script>
 
 <style>
+	@property --enter {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 1;
+	}
+
 	.stage {
 		--line: 1.6rem;
 		--notes-w: clamp(15rem, 24vw, 24rem);
@@ -320,7 +358,7 @@ const notes = excerpts.flatMap((excerpt) =>
 		color: #8a9186;
 	}
 
-	.code {
+	[data-hl] .code {
 		background: linear-gradient(#fbe46a, #fbe46a) no-repeat 0 55% / 0% 72%;
 		mix-blend-mode: multiply;
 		transition: background-size 0.7s var(--ease-out);
@@ -464,6 +502,7 @@ const notes = excerpts.flatMap((excerpt) =>
 	.viewport {
 		position: relative;
 		overflow: hidden;
+		contain: strict;
 	}
 
 	.page {

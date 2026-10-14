@@ -125,25 +125,28 @@ const jsonLd = {
 		<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 	</head>
 	<body>
-		<nav class="lang" aria-label={t({ es: 'Idioma', en: 'Language' })}>
-			{
-				(Object.keys(languages) as Lang[]).map((l) => (
-					<a
-						href={homePath(l)}
-						hreflang={l}
-						lang={l}
-						data-lang={l}
-						aria-current={l === lang ? 'page' : undefined}
-						title={languages[l]}
-					>
-						{l.toUpperCase()}
-					</a>
-				))
-			}
-		</nav>
+		<div class="chrome" data-chrome data-theme="space">
+			<div class="backdrop" aria-hidden="true"></div>
+			<nav class="lang" aria-label={t({ es: 'Idioma', en: 'Language' })}>
+				{
+					(Object.keys(languages) as Lang[]).map((l) => (
+						<a
+							href={homePath(l)}
+							hreflang={l}
+							lang={l}
+							data-lang={l}
+							aria-current={l === lang ? 'page' : undefined}
+							title={languages[l]}
+						>
+							{l.toUpperCase()}
+						</a>
+					))
+				}
+			</nav>
+			<p class="year" aria-hidden="true"><span data-year-display>1936</span></p>
+			<Autoplay />
+		</div>
 		<slot />
-		<p class="year" aria-hidden="true"><span data-year-display>1936</span></p>
-		<Autoplay />
 	</body>
 </html>
 
@@ -205,32 +208,37 @@ const jsonLd = {
 		--fg-dim: var(--regolito);
 	}
 
-	html[data-theme='paper'] {
+	[data-theme='space'] {
+		--bg: var(--vacio);
+		--fg: var(--luz);
+		--fg-dim: var(--regolito);
+	}
+	[data-theme='paper'] {
 		--bg: var(--papel);
 		--fg: var(--tinta);
 		--fg-dim: #5a6157;
 	}
-	html[data-theme='wall'] {
+	[data-theme='wall'] {
 		--bg: #efefeb;
 		--fg: var(--tinta);
 		--fg-dim: #6a6d68;
 	}
-	html[data-theme='panel'] {
+	[data-theme='panel'] {
 		--bg: var(--panel);
 		--fg: #e4e6e1;
 		--fg-dim: #9aa09b;
 	}
-	html[data-theme='alarm'] {
+	[data-theme='alarm'] {
 		--bg: var(--aviso);
 		--fg: var(--vacio);
 		--fg-dim: #5c3f00;
 	}
-	html[data-theme='blueprint'] {
+	[data-theme='blueprint'] {
 		--bg: #1b3f8b;
 		--fg: #eef2fb;
 		--fg-dim: #a9badf;
 	}
-	html[data-theme='copper'] {
+	[data-theme='copper'] {
 		--bg: var(--cobre);
 		--fg: #f2dcc8;
 		--fg-dim: #b98a68;
@@ -249,15 +257,23 @@ const jsonLd = {
 
 	body {
 		margin: 0;
-		background-color: var(--bg);
-		color: var(--fg);
+		background-color: var(--vacio);
+		color: var(--luz);
 		font-family: var(--font-sans);
 		font-size: var(--t-body);
 		font-weight: 400;
 		line-height: 1.45;
-		/* Only the background fades: color is inherited, so fading it would restyle the whole page on every frame */
-		transition: background-color 900ms ease;
 		-webkit-font-smoothing: antialiased;
+	}
+
+	.backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: -1;
+		background-color: var(--bg);
+		transition: background-color 900ms ease;
+		pointer-events: none;
+		contain: strict;
 	}
 
 	img,
@@ -305,19 +321,23 @@ const jsonLd = {
 	.scene {
 		position: relative;
 		height: calc(var(--len, 300) * 1vh);
+		color: var(--fg);
+		contain: layout style;
 	}
 
-	/* Scenes away from the viewport skip style, layout and paint, so theme changes and
-	   animations elsewhere don't cost anything there. Only with JS: without it scenes
-	   have no fixed height, and a skipped one would collapse */
-	.js .scene {
+	.scene .text[data-theme] {
+		color: var(--fg);
+	}
+
+	/* Cold scenes away from the viewport skip style, layout and paint on initial load.
+	   Once warmed during idle time (or brought near), they stay unlocked so entering them never stalls a scroll frame */
+	.js .scene:not(.is-warm) {
 		content-visibility: auto;
 	}
 
-	/* Once the scene engine runs, the scenes around the viewport render normally:
-	   inside content-visibility: auto, animations can't run on the compositor */
-	.scenes-ready .scene:not(.is-far) {
-		content-visibility: visible;
+	/* Scenes more than a screen away pause any continuous animations without restyling the whole subtree */
+	.scenes-ready .scene.is-far :is(.hint span, .trace, .l, .src::after) {
+		animation-play-state: paused !important;
 	}
 
 	@supports (height: 1svh) {
@@ -334,6 +354,7 @@ const jsonLd = {
 		height: 100vh;
 		height: 100lvh;
 		overflow: hidden;
+		contain: content;
 	}
 
 	/* Before the JS arrives, every scene is in its initial state */
@@ -371,19 +392,28 @@ const jsonLd = {
 			visibility 0s;
 	}
 
+	@property --layer-o {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 1;
+	}
+
 	/* Full-screen layers that appear at --a and disappear at --b */
 	.layer {
-		position: absolute;
-		inset: 0;
-		opacity: calc(
+		--layer-o: calc(
 			clamp(0, calc((var(--p, 1) - var(--a, -1)) / 0.025), 1) *
 				(1 - clamp(0, calc((var(--p, 1) - var(--b, 2)) / 0.025), 1))
 		);
+		position: absolute;
+		inset: 0;
+		opacity: var(--layer-o);
 	}
 
 	/* Subtrees that don't follow --p: with a constant value here, scroll updates
 	   stop at this element instead of restyling everything inside on every frame */
-	.still {
+	.still,
+	.stack,
+	.beat {
 		--p: 0;
 	}
 
@@ -396,6 +426,7 @@ const jsonLd = {
 	/* Without JavaScript, the story reads from top to bottom */
 	html:not(.js) .scene {
 		height: auto;
+		background-color: var(--bg);
 	}
 	html:not(.js) .stage {
 		position: relative;
@@ -413,6 +444,7 @@ const jsonLd = {
 		gap: 0.25rem;
 		font-family: var(--font-mono);
 		font-size: 0.8125rem;
+		contain: layout style;
 	}
 
 	.lang a {
@@ -448,10 +480,11 @@ const jsonLd = {
 		opacity: 0.75;
 		transition: color 900ms ease;
 		pointer-events: none;
+		contain: layout style paint;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		body,
+		.backdrop,
 		.year {
 			transition: none;
 		}

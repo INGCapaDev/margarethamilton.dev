@@ -14,13 +14,23 @@ interface Beat {
 	el: HTMLElement;
 	from: number;
 	to: number;
+	theme?: string;
+	year?: number;
+	on?: boolean;
 }
 
 interface Scene {
 	el: HTMLElement;
+	themeEl: HTMLElement;
 	beats: Beat[];
 	listeners: Listener[];
+	warmFns: (() => void)[];
+	theme?: string;
+	year?: number;
+	pFrom: number;
+	pTo: number;
 	p: number;
+	cssP: string;
 	top: number;
 	height: number;
 	far?: boolean;
@@ -35,17 +45,33 @@ export const clamp = (n: number, min = 0, max = 1) => Math.min(max, Math.max(min
 /** Local progress of `p` within the range [from, to], from 0 to 1 */
 export const segment = (p: number, from: number, to: number) => clamp((p - from) / (to - from));
 
-const scenes: Scene[] = $$('[data-scene]').map((el) => ({
-	el,
-	beats: $$('[data-beat]', el).map((beat) => {
-		const [from, to = 1.01] = (beat.dataset.beat ?? '0').split(' ').map(Number);
-		return { el: beat, from, to };
-	}),
-	listeners: [],
-	p: -1,
-	top: 0,
-	height: 0,
-}));
+const scenes: Scene[] = $$('[data-scene]').map((el) => {
+	const [pFrom = 0, pTo = 1] = (el.dataset.pRange ?? '0 1').split(' ').map(Number);
+	return {
+		el,
+		themeEl: $('.text', el) ?? el,
+		beats: $$('[data-beat]', el).map((beat) => {
+			const [from, to = 1.01] = (beat.dataset.beat ?? '0').split(' ').map(Number);
+			return {
+				el: beat,
+				from,
+				to,
+				theme: beat.dataset.theme,
+				year: beat.dataset.year ? Number(beat.dataset.year) : undefined,
+			};
+		}),
+		listeners: [],
+		warmFns: [],
+		theme: el.dataset.theme,
+		year: el.dataset.year ? Number(el.dataset.year) : undefined,
+		pFrom,
+		pTo,
+		p: -1,
+		cssP: '',
+		top: 0,
+		height: 0,
+	};
+});
 
 // Stages are 100lvh tall: on mobile, window.innerHeight changes while the browser toolbars
 // hide or show, but this height doesn't, so the sticky travel and the progress stay put
@@ -57,6 +83,12 @@ let vw = 0;
 
 /** Height of a stage: the viewport with the mobile toolbars hidden */
 export const viewportHeight = () => vh;
+
+/** Scroll position where the last scene finishes, before the credits */
+export const maxScroll = () => {
+	const last = scenes[scenes.length - 1];
+	return last ? last.top + last.height - vh : 0;
+};
 
 // Scene heights only depend on the viewport, so their positions are measured once per resize
 // instead of reading the layout on every frame
@@ -70,6 +102,7 @@ function measure() {
 }
 
 const root = document.documentElement;
+const chromeEl = $('[data-chrome]') ?? root;
 const yearEl = $('[data-year-display]');
 let shownYear = Number(yearEl?.textContent) || 1936;
 let targetYear = shownYear;
@@ -84,6 +117,25 @@ export function onProgress(sceneEl: HTMLElement, fn: Listener) {
 	queue();
 }
 
+/**
+ * Runs `fn` when `sceneEl` is warmed (ahead of time while idle, or before its first frame)
+ * and again when the layout viewport or fonts change, always before any DOM write in the frame.
+ */
+export function onWarm(sceneEl: HTMLElement, fn: () => void) {
+	const scene = scenes.find((s) => s.el === sceneEl);
+	if (!scene) return;
+	scene.warmFns.push(fn);
+	if (scene.warm) fn();
+}
+
+function warmScene(scene: Scene) {
+	if (!scene.warm) {
+		scene.warm = true;
+		scene.el.classList.add('is-warm');
+	}
+	for (const fn of scene.warmFns) fn();
+}
+
 function queue() {
 	if (scheduled) return;
 	scheduled = true;
@@ -94,6 +146,14 @@ function frame() {
 	scheduled = false;
 	const y = window.scrollY;
 	let active: Scene | undefined;
+
+	// Warm any newly-reached scene and run its layout reads before touching styles in the loop below
+	for (const scene of scenes) {
+		const top = scene.top - y;
+		const bottom = top + scene.height;
+		const far = bottom < -vh || top > vh * 2;
+		if (!far && !scene.warm) warmScene(scene);
+	}
 
 	for (const scene of scenes) {
 		const top = scene.top - y;
@@ -106,16 +166,23 @@ function frame() {
 			scene.el.classList.toggle('is-far', far);
 		}
 		if (far) continue;
-		scene.warm = true;
 
 		const span = scene.height - vh;
 		const p = span > 0 ? clamp(-top / span) : top <= 0 ? 1 : 0;
 		if (p === scene.p) continue;
 		scene.p = p;
 
-		scene.el.style.setProperty('--p', p.toFixed(4));
+		const cssP = clamp(p, scene.pFrom, scene.pTo).toFixed(4);
+		if (cssP !== scene.cssP) {
+			scene.cssP = cssP;
+			scene.el.style.setProperty('--p', cssP);
+		}
 		for (const beat of scene.beats) {
-			beat.el.classList.toggle('is-on', p >= beat.from && p < beat.to);
+			const on = p >= beat.from && p < beat.to;
+			if (on !== beat.on) {
+				beat.on = on;
+				beat.el.classList.toggle('is-on', on);
+			}
 		}
 		for (const fn of scene.listeners) fn(p);
 	}
@@ -133,15 +200,18 @@ export function onFrame(fn: (y: number) => void) {
 
 /** The theme and year are set by the last text that has already started, or by the scene itself */
 function applyChrome(scene: Scene) {
-	let theme = scene.el.dataset.theme;
-	let year = scene.el.dataset.year;
+	let theme = scene.theme;
+	let year = scene.year;
 	for (const beat of scene.beats) {
 		if (scene.p < beat.from) continue;
-		theme = beat.el.dataset.theme ?? theme;
-		year = beat.el.dataset.year ?? year;
+		theme = beat.theme ?? theme;
+		year = beat.year ?? year;
 	}
-	if (theme && root.dataset.theme !== theme) root.dataset.theme = theme;
-	if (year) setYear(Number(year));
+	if (theme) {
+		if (scene.themeEl.dataset.theme !== theme) scene.themeEl.dataset.theme = theme;
+		if (chromeEl.dataset.theme !== theme) chromeEl.dataset.theme = theme;
+	}
+	if (year) setYear(year);
 }
 
 function setYear(year: number) {
@@ -180,14 +250,13 @@ const idle = (fn: () => void) =>
 		: window.setTimeout(() => (performance.now() - lastScroll < 300 ? idle(fn) : fn()), 300);
 
 function warm() {
+	if (performance.now() - lastScroll < 200) return idle(warm);
 	const y = window.scrollY;
 	const cold = scenes.filter((scene) => !scene.warm);
 	if (!cold.length) return;
 	const scene = cold.reduce((a, b) => (Math.abs(b.top - y) < Math.abs(a.top - y) ? b : a));
-	scene.warm = true;
-	scene.el.classList.remove('is-far');
+	warmScene(scene);
 	scene.el.lastElementChild?.getBoundingClientRect();
-	scene.el.classList.add('is-far');
 	idle(warm);
 }
 
@@ -195,10 +264,21 @@ window.addEventListener('scroll', () => ((lastScroll = performance.now()), queue
 window.addEventListener('resize', () => {
 	if (window.innerWidth === vw && probe.offsetHeight === vh) return;
 	measure();
-	for (const scene of scenes) scene.p = -1;
-	queue();
+	for (const scene of scenes) {
+		if (scene.warm) for (const fn of scene.warmFns) fn();
+		scene.p = -1;
+	}
 	for (const fn of resizeListeners) fn();
+	queue();
 });
+if (document.fonts && document.fonts.status !== 'loaded') {
+	document.fonts.ready.then(() => {
+		for (const scene of scenes) {
+			if (scene.warm) for (const fn of scene.warmFns) fn();
+		}
+		queue();
+	});
+}
 measure();
 frame();
 root.classList.add('scenes-ready');

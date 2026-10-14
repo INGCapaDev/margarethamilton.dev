@@ -161,6 +161,10 @@ const keys = [
 		--metal: #aeb2af;
 		--glass: #080c0a;
 		--el-on: #a3ffc4;
+		--bg: #000;
+		--fg: #fff;
+		--fg-dim: #888;
+		color: #fff;
 		container-type: inline-size;
 		width: 100%;
 	}
@@ -195,6 +199,7 @@ const keys = [
 		font-family: var(--font-sans);
 		font-weight: 500;
 		user-select: none;
+		contain: layout style paint;
 	}
 
 	/* Phillips screws, slightly sunk into the paint */
@@ -427,7 +432,6 @@ const keys = [
 	.d :global(polygon) {
 		fill: var(--el);
 		opacity: 0.045;
-		transition: opacity 0.06s;
 	}
 
 	.d[data-d='0'] :global(:is(.s-a, .s-b, .s-c, .s-d, .s-e, .s-f)),

@@ -235,7 +235,14 @@ const icons: Record<string, string> = {
 };
 ---
 
-<section class="scene legado" data-scene="legado" data-theme="wall" data-year="1976" style="--len: 900">
+<section
+	class="scene legado"
+	data-scene="legado"
+	data-theme="wall"
+	data-year="1976"
+	data-p-range="0.76 1"
+	style="--len: 900"
+>
 	<div class="stage">
 		<div class="layer profile-layer" style={`--b: ${PHOTO + 0.03}`}>
 			<div class="slot still">
@@ -526,7 +533,7 @@ const icons: Record<string, string> = {
 
 <script>
 	import { $, $$ } from '../../scripts/dom';
-	import { onProgress, onResize } from '../../scripts/scroll';
+	import { onProgress, onWarm } from '../../scripts/scroll';
 
 	// The profile scrolls by itself to the latest change
 	const scene = $('[data-scene="legado"]')!;
@@ -534,34 +541,67 @@ const icons: Record<string, string> = {
 	const page = $('[data-page]', scene)!;
 	const toasts = $('.toasts', scene)!;
 	const from = (el: HTMLElement) => Number(el.dataset.beat!.split(' ')[0]);
-	const stops = $$('[data-pan]', page).sort((a, z) => from(a) - from(z));
+	const rawEntries = $$('.entry[data-beat]', page);
+	const stops = $$('[data-pan]', page)
+		.sort((a, z) => from(a) - from(z))
+		.map((el) => ({
+			el,
+			at: from(el),
+			mode: el.dataset.pan,
+			row: el.dataset.pan === 'end' ? $('.row', el) : null,
+			preceding: rawEntries.map((e) => Boolean(e.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)),
+			pan: 0,
+		}));
+	const entries = rawEntries.map((el) => ({
+		el,
+		at: from(el),
+		row: $('.row', el)!,
+		curH: 0,
+		fullH: 0,
+	}));
 	const GAP = 12;
-	let target: HTMLElement | undefined;
+	let target: (typeof stops)[number] | undefined;
 
-	function pan() {
-		if (!target) return;
-		let y = target.offsetTop - GAP;
-		if (target.dataset.pan === 'end') {
-			// A new entry may still be expanding: count the height it will have, not the one it has.
-			// And keep it above the notification that comes with it.
-			y += $('.row', target)!.offsetHeight + toasts.offsetHeight + GAP * 3 - viewport.clientHeight;
+	// Pre-calculate pan offsets for every stop during warm-up and resize so scroll frames never read layout
+	onWarm(scene, () => {
+		const viewportH = viewport.clientHeight;
+		const toastsH = toasts.offsetHeight;
+		const pageH = page.offsetHeight;
+		for (const e of entries) {
+			e.curH = e.el.offsetHeight;
+			e.fullH = e.row.offsetHeight;
 		}
-		const max = page.offsetHeight - viewport.clientHeight;
-		page.style.setProperty('--pan', `${-Math.round(Math.max(0, Math.min(max, y)))}px`);
-	}
+		for (const s of stops) {
+			const top = s.el.offsetTop;
+			const rowH = s.row ? s.row.offsetHeight : 0;
+			let deltaAbove = 0;
+			let deltaTotal = 0;
+			for (let i = 0; i < entries.length; i++) {
+				const e = entries[i];
+				const targetH = s.at >= e.at ? e.fullH : 0;
+				const delta = targetH - e.curH;
+				deltaTotal += delta;
+				if (s.preceding[i]) deltaAbove += delta;
+			}
+			let y = top + deltaAbove - GAP;
+			if (s.mode === 'end') {
+				y += rowH + toastsH + GAP * 3 - viewportH;
+			}
+			const max = pageH + deltaTotal - viewportH;
+			s.pan = -Math.round(Math.max(0, Math.min(max, y)));
+		}
+		if (target) page.style.setProperty('--pan', `${target.pan}px`);
+	});
 
-	onProgress(scene, () => {
-		const next = stops.filter((el) => el.classList.contains('is-on')).at(-1);
+	onProgress(scene, (p) => {
+		let next: (typeof stops)[number] | undefined;
+		for (const s of stops) {
+			if (p >= s.at) next = s;
+		}
 		if (next === target) return;
 		target = next;
-		pan();
+		if (target) page.style.setProperty('--pan', `${target.pan}px`);
 	});
-
-	// Once an entry finishes expanding, everything below it has moved
-	page.addEventListener('transitionend', (event) => {
-		if (event.propertyName === 'grid-template-rows') pan();
-	});
-	onResize(pan);
 </script>
 
 <style>
@@ -594,6 +634,9 @@ const icons: Record<string, string> = {
 		--li-text: rgb(0 0 0 / 0.9);
 		--li-dim: rgb(0 0 0 / 0.6);
 		--li-blue: #0a66c2;
+		--bg: #fff;
+		--fg: var(--li-text);
+		--fg-dim: var(--li-dim);
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -756,6 +799,10 @@ const icons: Record<string, string> = {
 		overflow: hidden;
 	}
 
+	:global(.js) .viewport {
+		contain: strict;
+	}
+
 	.page {
 		position: relative;
 		display: grid;
@@ -763,6 +810,7 @@ const icons: Record<string, string> = {
 		padding: 0.6em;
 		transform: translateY(var(--pan, 0px));
 		transition: transform 0.9s var(--ease-out);
+		will-change: transform;
 	}
 
 	.card {
@@ -985,18 +1033,37 @@ const icons: Record<string, string> = {
 		overflow: hidden;
 	}
 
-	:global(.js) .entry.is-on .row,
-	:global(.js) .headline > .is-on {
+	/* Animate opacity on a pseudo-element so the highlight runs on the compositor without repainting the page */
+	:global(.js) .entry[data-beat] .row,
+	:global(.js) .headline > span {
+		position: relative;
+		z-index: 0;
+	}
+
+	:global(.js) .entry[data-beat] .row::before,
+	:global(.js) .headline > span::before {
+		content: '';
+		position: absolute;
+		inset: 0 0 1px;
+		z-index: -1;
+		border-radius: inherit;
+		background: #dbeafd;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	:global(.js) .entry.is-on .row::before,
+	:global(.js) .headline > .is-on::before {
 		animation: fresh 2.6s ease-out;
 	}
 
 	@keyframes fresh {
 		from,
 		25% {
-			background-color: #dbeafd;
+			opacity: 1;
 		}
 		to {
-			background-color: rgb(219 234 253 / 0);
+			opacity: 0;
 		}
 	}
 
@@ -1185,8 +1252,8 @@ const icons: Record<string, string> = {
 			transition: none;
 		}
 
-		:global(.js) .entry.is-on .row,
-		:global(.js) .headline > .is-on {
+		:global(.js) .entry.is-on .row::before,
+		:global(.js) .headline > .is-on::before {
 			animation: none;
 		}
 	}

@@ -20,7 +20,7 @@ const [born, died] = t({
 });
 ---
 
-<section class="scene inicio" data-scene="inicio" data-theme="space" data-year="1936" style="--len: 440">
+<section class="scene inicio" data-scene="inicio" data-theme="space" data-year="1936" data-p-range="0 0.32" style="--len: 440">
 	<div class="stage">
 		<div class="earth">
 			<Image
@@ -47,9 +47,9 @@ const [born, died] = t({
 		</div>
 
 		<header class="hero">
-			<p class="mono dates"><span>{born} –</span> <span>{died}</span></p>
-			<h1><span>Margaret</span> <span>Hamilton</span></h1>
-			<figure class="portrait">
+			<p class="mono dates still"><span>{born} –</span> <span>{died}</span></p>
+			<h1 class="still"><span>Margaret</span> <span>Hamilton</span></h1>
+			<figure class="portrait still">
 				<Image
 					src={portrait}
 					alt={t({
@@ -83,6 +83,17 @@ const [born, died] = t({
 </script>
 
 <style>
+	@property --fade {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 0;
+	}
+	@property --hero-out {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 0;
+	}
+
 	/* The Earth over the Moon pulls away and fades while the stars form the quote.
 	   Declared only where it's used, so the quote's letters don't inherit a value that changes on every frame */
 	.earth,
@@ -135,6 +146,7 @@ const [born, died] = t({
 	}
 
 	.hero {
+		--hero-out: clamp(0, (var(--p, 0) - 0.05) / 0.11, 1);
 		position: absolute;
 		left: var(--gutter);
 		right: var(--gutter);
@@ -146,8 +158,8 @@ const [born, died] = t({
 			'name portrait';
 		align-items: end;
 		column-gap: var(--gutter);
-		opacity: calc(1 - clamp(0, (var(--p, 0) - 0.05) / 0.11, 1));
-		transform: translateY(calc(clamp(0, (var(--p, 0) - 0.05) / 0.11, 1) * -4vh));
+		opacity: calc(1 - var(--hero-out));
+		transform: translateY(calc(var(--hero-out) * -4vh));
 	}
 
 	.hero h1 {

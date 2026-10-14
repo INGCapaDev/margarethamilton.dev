@@ -1,5 +1,5 @@
 import { $, $$ } from './dom';
-import { onProgress, onResize } from './scroll';
+import { onWarm } from './scroll';
 
 /**
  * Starry sky whose stars turn into letters.
@@ -181,26 +181,8 @@ export function starfield(stage: HTMLElement, { seed = 1969, region = [0.03, 0.4
 		sky.classList.add('is-placed');
 	};
 
-	// Placing reads the scene's layout: a scene that is still far away (.is-far, see scroll.ts)
-	// waits until it gets close, instead of being laid out on load and on every resize
+	// Placing reads the scene's layout: a scene that is still far away waits until it is warmed
+	// during idle time, instead of being laid out on load or in the middle of a scroll frame
 	const scene = stage.closest<HTMLElement>('[data-scene]')!;
-	let dirty = true;
-	const update = () => {
-		if (!dirty || scene.classList.contains('is-far')) return;
-		dirty = false;
-		place();
-	};
-	const invalidate = () => {
-		dirty = true;
-		update();
-	};
-
-	update();
-	onProgress(scene, update);
-	document.fonts?.ready.then(invalidate);
-	let resizeTimer = 0;
-	onResize(() => {
-		window.clearTimeout(resizeTimer);
-		resizeTimer = window.setTimeout(invalidate, 150);
-	});
+	onWarm(scene, place);
 }

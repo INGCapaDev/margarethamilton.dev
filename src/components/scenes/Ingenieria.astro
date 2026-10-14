@@ -34,7 +34,14 @@ const words = term.map((line) =>
 );
 ---
 
-<section class="scene ingenieria" data-scene="ingenieria" data-theme="blueprint" data-year="1969" style="--len: 460">
+<section
+	class="scene ingenieria"
+	data-scene="ingenieria"
+	data-theme="blueprint"
+	data-year="1969"
+	data-p-range="0.3 0.58"
+	style="--len: 460"
+>
 	<div class="stage">
 		<div class="grid" aria-hidden="true"></div>
 
@@ -128,7 +135,7 @@ const words = term.map((line) =>
 
 <script>
 	import { $, $$ } from '../../scripts/dom';
-	import { onProgress, onResize, segment } from '../../scripts/scroll';
+	import { onProgress, onWarm, segment } from '../../scripts/scroll';
 
 	// Part of the scene in which the listing is typed: it ends once the term is upright
 	const TYPE_FROM = 0.02;
@@ -146,30 +153,59 @@ const words = term.map((line) =>
 		const len = full.join('').length;
 		const start = total;
 		total += len + 1;
-		return { row, parts, full, len, start, shown: -1 };
+		return { row, parts, full, len, start, shown: -1, on: false, bottom: 0 };
 	});
 
 	// Once every letter is upright, the wobble has nothing left to do
 	const term = $('.term', scene)!;
-	onProgress(scene, (p) => term.classList.toggle('is-upright', p >= 0.58));
+	let isUpright = false;
 
 	let active = rows[0];
 	let lastTyped = -1;
+	let lastY = NaN;
+	let isScrolled = false;
+	let isTyping = false;
+	let viewHeight = 0;
 	let idle = 0;
 
-	// On resize, long lines wrap differently: the listing has to be repositioned
-	onResize(() => (lastTyped = -1));
+	// Pre-measure row offsets when the scene warms up or resizes so scroll frames never read layout
+	onWarm(scene, () => {
+		if (lastTyped !== -1) {
+			for (const r of rows) {
+				if (r.shown !== r.len) {
+					r.parts.forEach((part, i) => (part.textContent = r.full[i]));
+				}
+				r.shown = -1;
+			}
+			lastTyped = -1;
+			lastY = NaN;
+		}
+		viewHeight = view.clientHeight;
+		for (const r of rows) {
+			r.bottom = r.row.offsetTop + r.row.offsetHeight;
+		}
+	});
 
 	onProgress(scene, (p) => {
+		const upright = p >= 0.58;
+		if (upright !== isUpright) {
+			isUpright = upright;
+			term.classList.toggle('is-upright', upright);
+		}
+
 		const typed = Math.floor(segment(p, TYPE_FROM, TYPE_TO) * total);
 		if (typed === lastTyped) return;
 		lastTyped = typed;
 
 		let current = rows[0];
 		for (const r of rows) {
+			const on = typed >= r.start;
+			if (on) current = r;
+			if (r.on !== on) {
+				r.on = on;
+				r.row.classList.toggle('is-on', on);
+			}
 			const count = Math.min(r.len, Math.max(0, typed - r.start));
-			if (typed >= r.start) current = r;
-			r.row.classList.toggle('is-on', typed >= r.start);
 			if (count === r.shown) continue;
 			r.shown = count;
 			let left = count;
@@ -182,23 +218,43 @@ const words = term.map((line) =>
 		if (current !== active) {
 			active.row.classList.remove('is-active');
 			active = current;
+			active.row.classList.add('is-active');
+		} else if (!active.row.classList.contains('is-active')) {
+			active.row.classList.add('is-active');
 		}
-		active.row.classList.add('is-active');
 
 		// Like an editor: the listing scrolls up so the line being typed stays inside the window
-		const bottom = active.row.offsetTop + active.row.offsetHeight;
-		const y = Math.max(0, bottom - view.clientHeight * 0.78);
-		code.style.transform = `translate3d(0, ${(-y).toFixed(1)}px, 0)`;
-		view.classList.toggle('is-scrolled', y > 0);
+		const y = Math.round(Math.max(0, active.bottom - viewHeight * 0.78) * 10) / 10;
+		if (y !== lastY) {
+			lastY = y;
+			code.style.transform = `translate3d(0, ${-y}px, 0)`;
+			const scrolled = y > 0;
+			if (scrolled !== isScrolled) {
+				isScrolled = scrolled;
+				view.classList.toggle('is-scrolled', scrolled);
+			}
+		}
 
 		// The caret only blinks once typing stops
-		code.classList.add('is-typing');
+		if (!isTyping) {
+			isTyping = true;
+			code.classList.add('is-typing');
+		}
 		clearTimeout(idle);
-		idle = window.setTimeout(() => code.classList.remove('is-typing'), 450);
+		idle = window.setTimeout(() => {
+			isTyping = false;
+			code.classList.remove('is-typing');
+		}, 450);
 	});
 </script>
 
 <style>
+	@property --grid-o {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 1;
+	}
+
 	.stage {
 		display: grid;
 		grid-template-rows: 1fr auto;
@@ -208,12 +264,13 @@ const words = term.map((line) =>
 
 	/* Blueprint grid that appears when the term is taken seriously */
 	.grid {
+		--grid-o: clamp(0, calc((var(--p, 1) - 0.3) / 0.28), 1);
 		position: absolute;
 		inset: 0;
 		background:
 			linear-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px) 0 0 / 2rem 2rem,
 			linear-gradient(90deg, rgb(255 255 255 / 0.07) 1px, transparent 1px) 0 0 / 2rem 2rem;
-		opacity: clamp(0, calc((var(--p, 1) - 0.3) / 0.28), 1);
+		opacity: var(--grid-o);
 	}
 
 	.term {
@@ -222,6 +279,7 @@ const words = term.map((line) =>
 		font-weight: 400;
 		line-height: 0.95;
 		letter-spacing: -0.03em;
+		contain: layout style;
 	}
 
 	.term-line {
@@ -236,12 +294,12 @@ const words = term.map((line) =>
 	/* Typed, the letters' values don't have to be parsed again on every restyle */
 	@property --k {
 		syntax: '<number>';
-		inherits: true;
+		inherits: false;
 		initial-value: 0;
 	}
 	@property --wobble {
 		syntax: '<angle>';
-		inherits: true;
+		inherits: false;
 		initial-value: 0deg;
 	}
 
@@ -297,6 +355,7 @@ const words = term.map((line) =>
 	.window {
 		position: relative;
 		overflow: hidden;
+		contain: strict;
 		mask-image: linear-gradient(transparent, #000 2rem);
 	}
 

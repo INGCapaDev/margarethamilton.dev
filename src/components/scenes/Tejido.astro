@@ -40,7 +40,7 @@ const arc = (x: number, back: boolean) =>
 		: `M ${x} ${CY - RY} A ${RX} ${RY} 0 0 1 ${x} ${CY + RY}`;
 ---
 
-<section class="scene tejido" data-scene="tejido" data-theme="copper" data-year="1969" style="--len: 520">
+<section class="scene tejido" data-scene="tejido" data-theme="copper" data-year="1969" data-p-range="0.01 0.83" style="--len: 520">
 	<div class="stage">
 		<div class="layer agc" style="--b: 0.22">
 			<svg
@@ -84,6 +84,7 @@ const arc = (x: number, back: boolean) =>
 
 		<div class="layer photo" style="--a: 0.62; --b: 0.8">
 			<Image
+				class="still"
 				src={rope}
 				alt={t({
 					es: 'Un módulo de memoria de cuerda del ordenador del Apollo: cientos de núcleos de ferrita atravesados por hilos de cobre',
@@ -95,6 +96,7 @@ const arc = (x: number, back: boolean) =>
 
 		<div class="layer photo sealed" style="--a: 0.8">
 			<Image
+				class="still"
 				src={agc}
 				alt={t({
 					es: 'El ordenador de guiado del Apollo, una caja metálica cerrada, junto a su teclado DSKY',
@@ -159,6 +161,27 @@ const arc = (x: number, back: boolean) =>
 </section>
 
 <style>
+	@property --core-g {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 1;
+	}
+	@property --mod-k {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 1;
+	}
+	@property --mod-e {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 1;
+	}
+	@property --wire-w {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 1;
+	}
+
 	.agc {
 		display: flex;
 		flex-direction: column;
@@ -168,7 +191,7 @@ const arc = (x: number, back: boolean) =>
 	}
 
 	.agc svg {
-		--g: clamp(0, calc((var(--p, 1) - 0.15) / 0.05), 1);
+		--core-g: clamp(0, calc((var(--p, 1) - 0.15) / 0.05), 1);
 		width: min(100%, 680px);
 		height: auto;
 		max-height: 44vh;
@@ -193,10 +216,11 @@ const arc = (x: number, back: boolean) =>
 
 	/* Each module slides down into its slot, one after another */
 	.module {
-		--k: clamp(0, calc((var(--p, 1) - 0.01 - var(--i) * 0.017) / 0.035), 1);
-		--e: calc(var(--k) * var(--k) * (3 - 2 * var(--k)));
-		opacity: var(--k);
-		transform: translateY(calc((var(--e) - 1) * 130px));
+		--mod-k: clamp(0, calc((var(--p, 1) - 0.01 - var(--i) * 0.017) / 0.035), 1);
+		--mod-e: calc(var(--mod-k) * var(--mod-k) * (3 - 2 * var(--mod-k)));
+		--p: 0;
+		opacity: var(--mod-k);
+		transform: translateY(calc((var(--mod-e) - 1) * 130px));
 	}
 
 	.case {
@@ -222,11 +246,11 @@ const arc = (x: number, back: boolean) =>
 		fill: none;
 		stroke: var(--hilo);
 		stroke-width: 1.4;
-		opacity: calc(0.4 + 0.6 * var(--g));
+		opacity: calc(0.4 + 0.6 * var(--core-g));
 	}
 
 	.modules {
-		filter: drop-shadow(0 0 calc(var(--g) * 10px) rgb(217 138 78 / calc(var(--g) * 0.5)));
+		filter: drop-shadow(0 0 calc(var(--core-g) * 10px) rgb(217 138 78 / calc(var(--core-g) * 0.5)));
 	}
 
 	.agc-caption {
@@ -254,7 +278,8 @@ const arc = (x: number, back: boolean) =>
 	}
 
 	.rope {
-		--w: clamp(0, calc((var(--p, 1) - 0.27) / 0.2), 1);
+		--wire-w: clamp(0, calc((var(--p, 1) - 0.27) / 0.2), 1);
+		--p: 0;
 		inset: 14vh var(--gutter) auto;
 		width: calc(100% - 2 * var(--gutter));
 		height: auto;
@@ -277,7 +302,7 @@ const arc = (x: number, back: boolean) =>
 		stroke-width: 3;
 		stroke-linecap: round;
 		stroke-dasharray: 1;
-		stroke-dashoffset: calc(1 - var(--w));
+		stroke-dashoffset: calc(1 - var(--wire-w));
 		filter: drop-shadow(0 0 6px rgb(217 138 78 / 0.5));
 	}
 
@@ -286,7 +311,7 @@ const arc = (x: number, back: boolean) =>
 		font-size: 22px;
 		text-anchor: middle;
 		fill: var(--fg);
-		opacity: clamp(0, calc((var(--w) - var(--c)) * 20), 1);
+		opacity: clamp(0, calc((var(--wire-w) - var(--c)) * 20), 1);
 	}
 
 	.text {

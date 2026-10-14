@@ -9,13 +9,14 @@ import { getLang, translator } from '../../i18n';
 const t = translator(getLang(Astro));
 ---
 
-<section class="scene alarma" data-scene="alarma" data-theme="space" data-year="1969" style="--len: 1300">
+<section class="scene alarma" data-scene="alarma" data-theme="space" data-year="1969" data-p-range="0.06 0.87" style="--len: 1300">
 	<div class="stage">
 		<div class="layer shade" style="--b: 0.06">
-			<Image src={launch} alt={t({ es: 'El cohete Saturn V del Apollo 11 despegando entre llamas', en: 'The Apollo 11 Saturn V rocket lifting off in flames' })} widths={[720, 1280, 1920]} sizes="100vw" />
+			<Image class="still" src={launch} alt={t({ es: 'El cohete Saturn V del Apollo 11 despegando entre llamas', en: 'The Apollo 11 Saturn V rocket lifting off in flames' })} widths={[720, 1280, 1920]} sizes="100vw" />
 		</div>
 		<div class="layer shade" style="--a: 0.06; --b: 0.13">
 			<Image
+				class="still"
 				src={eagle}
 				alt={t({
 					es: 'El módulo lunar Eagle, dorado y con las patas desplegadas, en órbita sobre el negro del espacio',
@@ -27,13 +28,14 @@ const t = translator(getLang(Astro));
 		</div>
 
 		<div class="layer dsky-layer" style="--a: 0.13; --b: 0.4" aria-hidden="true">
-			<div class="dsky-wrap">
+			<div class="dsky-wrap still">
 				<Dsky id="dsky-1202" prog="63" verb="16" noun="68" r1="+33500" r2="-00610" r3="+05740" />
 			</div>
 		</div>
 
 		<div class="layer shade" style="--a: 0.4; --b: 0.46">
 			<Image
+				class="still"
 				src={missionControl}
 				alt={t({
 					es: 'La sala de control de misión en Houston, con consolas y pantallas, durante el Apollo 11',
@@ -133,14 +135,14 @@ const t = translator(getLang(Astro));
 	const dsky = createDsky($('#dsky-1202', scene)!);
 
 	const pad = (n: number, sign = '+') => sign + String(Math.max(0, Math.round(n))).padStart(5, '0');
-	const steps = [0.13, 0.14, 0.2, 0.32, 0.4, Infinity];
+	const steps = [0.1, 0.14, 0.2, 0.32, 0.4, 0.43, Infinity];
 	let current = -1;
 
 	onProgress(scene, (p) => {
 		const step = steps.findIndex((limit) => p < limit);
 
-		// While descending, the registers count down with the scroll
-		if (step <= 1 || step === 4) {
+		// While descending and visible, the registers count down with the scroll
+		if (step === 1 || step === 4) {
 			const t = segment(p, 0.09, 0.4);
 			dsky.show({ r1: pad(33500 - t * 26000), r2: pad(610 - t * 420, '-'), r3: pad(5740 - t * 4100) });
 		}
@@ -149,7 +151,9 @@ const t = translator(getLang(Astro));
 		const previous = current;
 		current = step;
 
-		if (step <= 1) {
+		if (step === 0 || step === 6) {
+			dsky.computing(false);
+		} else if (step === 1 || step === 5) {
 			dsky.show({ prog: '63', verb: '16', noun: '68', lamps: [] });
 			dsky.computing(true);
 		} else if (step === 2) {
@@ -234,12 +238,20 @@ const t = translator(getLang(Astro));
 			loading = true;
 			load();
 		}
-		frame = frameAt(p);
+		const next = frameAt(p);
+		if (next === frame) return;
+		frame = next;
 		seek();
 	});
 </script>
 
 <style>
+	@property --film-z {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 0;
+	}
+
 	.shade::after {
 		content: '';
 		position: absolute;
@@ -249,13 +261,14 @@ const t = translator(getLang(Astro));
 
 	/* The frame arrives rotated 45° so the horizon is level; it slowly zooms in while descending */
 	.film video {
+		--film-z: clamp(0, (var(--p, 0) - 0.46) / 0.41, 1);
 		position: absolute;
 		left: 50%;
 		top: 50%;
 		width: max(118vh, 92vw);
 		height: max(118vh, 92vw);
 		translate: -50% -50%;
-		scale: calc(1 + 0.1 * clamp(0, (var(--p, 0) - 0.46) / 0.41, 1));
+		scale: calc(1 + 0.1 * var(--film-z));
 		background: var(--vacio);
 	}
 

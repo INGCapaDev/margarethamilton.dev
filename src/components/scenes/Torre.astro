@@ -41,7 +41,7 @@ const slabs = binders.map((name, i) => ({
 }));
 ---
 
-<section class="scene torre" data-scene="torre" data-theme="wall" data-year="1969" style="--len: 620">
+<section class="scene torre" data-scene="torre" data-theme="wall" data-year="1969" data-p-range="0 0.94" style="--len: 620">
 	<div class="stage">
 		<div class="visual">
 			<div class="tower" aria-hidden="true">
@@ -118,6 +118,27 @@ const slabs = binders.map((name, i) => ({
 </section>
 
 <style>
+	@property --slab-t {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 1;
+	}
+	@property --z1 {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 0;
+	}
+	@property --z2 {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 0;
+	}
+	@property --dev {
+		syntax: '<number>';
+		inherits: false;
+		initial-value: 1;
+	}
+
 	.stage {
 		display: grid;
 		grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
@@ -146,7 +167,8 @@ const slabs = binders.map((name, i) => ({
 	}
 
 	.slab {
-		--t: clamp(0, calc((var(--p, 1) - var(--d)) / 0.06), 1);
+		--slab-t: clamp(0, calc((var(--p, 1) - var(--d)) / 0.06), 1);
+		--p: 0;
 		position: relative;
 		flex: 0 0 auto;
 		width: 100%;
@@ -158,8 +180,8 @@ const slabs = binders.map((name, i) => ({
 		border-block: 3px solid #2a2a27;
 		border-radius: 2px;
 		box-shadow: inset 6px 0 0 #3a3a36;
-		transform: translate(var(--shift), calc((1 - var(--t)) * -70vh)) rotate(var(--tilt));
-		opacity: var(--t);
+		transform: translate(var(--shift), calc((1 - var(--slab-t)) * -70vh)) rotate(var(--tilt));
+		opacity: var(--slab-t);
 	}
 
 	.slab .mono {

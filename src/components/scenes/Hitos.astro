@@ -74,9 +74,10 @@ function hollerith(ch: string): string[] {
 
 const cards = milestones.map((m) => ({
 	...m,
-	holes: m.card.split('').flatMap((ch, col) =>
-		hollerith(ch).map((row) => ({ x: colX(col) - 2.75, y: rowY(row) - 6.25 })),
-	),
+	holes: m.card
+		.split('')
+		.flatMap((ch, col) => hollerith(ch).map((row) => `M${colX(col) - 2.75} ${rowY(row) - 6.25}h5.5v12.5h-5.5Z`))
+		.join(''),
 	printed: m.card.split('').map((ch, col) => ({ ch, x: colX(col) })),
 }));
 
@@ -92,7 +93,7 @@ const beat = (i: number) =>
 		: `${((i + 0.2 - OFFSET) / SCALE).toFixed(3)} ${((i + 1.2 - OFFSET) / SCALE).toFixed(3)}`;
 ---
 
-<section class="scene hitos" data-scene="hitos" data-theme="paper" data-year="1936" style={`--len: ${N * 95}`}>
+<section class="scene hitos" data-scene="hitos" data-theme="paper" data-year="1936" data-p-range="0 0" style={`--len: ${N * 95}`}>
 	<!-- Nothing here reads --p: the cards are driven from the script -->
 	<div class="stage still">
 		<div class="deck" data-scale={SCALE} data-offset={OFFSET} aria-hidden="true">
@@ -103,25 +104,25 @@ const beat = (i: number) =>
 							<clipPath id={`punched-${i}`}>
 								<rect class="punched" width="0" height={H} />
 							</clipPath>
-							<pattern id={`digits-${i}`} width="8.7" height={H} patternUnits="userSpaceOnUse" x={colX(0) - 4.35}>
-								{ROWS.slice(2).map((row) => (
-									<text x="4.35" y={rowY(row) + 2.6}>
-										{row}
-									</text>
-								))}
-							</pattern>
+							{i === 0 && (
+								<pattern id="card-digits" width="8.7" height={H} patternUnits="userSpaceOnUse" x={colX(0) - 4.35}>
+									{ROWS.slice(2).map((row) => (
+										<text x="4.35" y={rowY(row) + 2.6}>
+											{row}
+										</text>
+									))}
+								</pattern>
+							)}
 						</defs>
 						<path class="stock" d={`M16 0H${W}V${H}H0V16Z`} />
-						<rect x={colX(0) - 4.35} y="60" width={80 * 8.7} height={H - 50} fill={`url(#digits-${i})`} />
+						<rect x={colX(0) - 4.35} y="60" width={80 * 8.7} height={H - 50} fill="url(#card-digits)" />
 						<g clip-path={`url(#punched-${i})`}>
 							{card.printed.map(({ ch, x }) => (
 								<text class="printed" x={x} y="11">
 									{ch}
 								</text>
 							))}
-							{card.holes.map(({ x, y }) => (
-								<rect class="hole" x={x} y={y} width="5.5" height="12.5" />
-							))}
+							<path class="hole" d={card.holes} />
 						</g>
 					</svg>
 				))
@@ -173,7 +174,8 @@ const beat = (i: number) =>
 				card.el.style.transform = transform;
 			}
 			// Columns are 8.7 units wide and start at 20.65, the left edge of the first one
-			const width = (20.65 + clamp((t - 0.22) / 0.6) * card.columns * 8.7).toFixed(1);
+			const cols = Math.round(clamp((t - 0.22) / 0.6) * card.columns);
+			const width = (20.65 + cols * 8.7).toFixed(1);
 			if (width !== card.width) {
 				card.width = width;
 				card.punched.setAttribute('width', width);

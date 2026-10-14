@@ -49,9 +49,15 @@ const words = text.split(' ').map((word) =>
 	for (const text of $$('.star-text')) {
 		const scene = text.closest<HTMLElement>('[data-scene]')!;
 		const [start, spread, dur] = [text.dataset.start, text.dataset.spread, text.dataset.dur].map(Number);
+		const end = start + spread + dur;
 		const letters = $$('.l', text).map((el) => ({ el, d: Number(el.dataset.d), t: -1 }));
+		let state = 0;
 
 		onProgress(scene, (p) => {
+			if (p <= start && state === -1) return;
+			if (p >= end && state === 1) return;
+			state = p <= start ? -1 : p >= end ? 1 : 0;
+
 			for (const letter of letters) {
 				const t = Math.round(clamp((p - start - letter.d * spread) / dur) * 1000) / 1000;
 				if (t === letter.t) continue;
@@ -68,12 +74,12 @@ const words = text.split(' ').map((word) =>
 	/* Typed as numbers, the letter's values don't have to be parsed again on every restyle: it costs half */
 	@property --t {
 		syntax: '<number>';
-		inherits: true;
+		inherits: false;
 		initial-value: 0;
 	}
 	@property --m0 {
 		syntax: '<number>';
-		inherits: true;
+		inherits: false;
 		initial-value: 0;
 	}
 	@property --m {
@@ -93,7 +99,7 @@ const words = text.split(' ').map((word) =>
 	}
 	@property --g0 {
 		syntax: '<number>';
-		inherits: true;
+		inherits: false;
 		initial-value: 0;
 	}
 	@property --g {
@@ -125,8 +131,8 @@ const words = text.split(' ').map((word) =>
 		display: inline-block;
 		color: rgb(236 236 230 / var(--g));
 		text-shadow:
-			0 0 calc((1 - var(--g)) * 0.5em) rgb(var(--tint, 255 255 255) / calc((1 - var(--g)) * var(--f))),
-			0 0 calc((1 - var(--g)) * 0.12em) rgb(255 255 255 / calc((1 - var(--g)) * var(--f)));
+			0 0 0.42em rgb(var(--tint, 255 255 255) / calc((1 - var(--g)) * var(--f))),
+			0 0 0.1em rgb(255 255 255 / calc((1 - var(--g)) * var(--f)));
 		transform: scale(calc(1.14 - 0.14 * var(--g)));
 		transform-origin: 50% 60%;
 	}
