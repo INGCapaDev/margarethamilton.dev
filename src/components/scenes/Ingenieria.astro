@@ -94,7 +94,7 @@ const words = term.map((line) =>
 							<>
 								<span class="w">
 									{word.map(({ char, r, y, d, jd }) => (
-										<span class="l" style={`--r:${r}deg;--y:${y}em;--d:${d};--jd:${jd}s`}>
+										<span class="l" style={`--l-r:${r}deg;--l-y:${y}em;--l-d:${d};--jd:${jd}s`}>
 											{char}
 										</span>
 									))}
@@ -302,28 +302,29 @@ const words = term.map((line) =>
 		white-space: nowrap;
 	}
 
-	/* Typed, the letters' values don't have to be parsed again on every restyle */
-	@property --k {
+	/* Typed, the letters' values don't have to be parsed again on every restyle. @property is global,
+	   so the names carry the letters' prefix: a bare --y here turned the stickers' `--y: 56%` into 0px */
+	@property --l-k {
 		syntax: '<number>';
 		inherits: false;
 		initial-value: 0;
 	}
-	@property --wobble {
+	@property --l-wobble {
 		syntax: '<angle>';
 		inherits: false;
 		initial-value: 7deg;
 	}
-	@property --d {
+	@property --l-d {
 		syntax: '<number>';
 		inherits: false;
 		initial-value: 0;
 	}
-	@property --y {
+	@property --l-y {
 		syntax: '<length>';
 		inherits: false;
 		initial-value: 0px;
 	}
-	@property --r {
+	@property --l-r {
 		syntax: '<angle>';
 		inherits: false;
 		initial-value: 0deg;
@@ -331,11 +332,11 @@ const words = term.map((line) =>
 
 	/* The wobble goes on `rotate` so it adds on top of `transform`, which holds the crooked pose */
 	.l {
-		--k: clamp(0, calc((var(--p, 1) - 0.3 - var(--d) * 0.16) / 0.12), 1);
-		--wobble: calc((1 - var(--k)) * 7deg);
+		--l-k: clamp(0, calc((var(--p, 1) - 0.3 - var(--l-d) * 0.16) / 0.12), 1);
+		--l-wobble: calc((1 - var(--l-k)) * 7deg);
 		display: inline-block;
-		font-weight: calc(300 + 300 * round(var(--k)));
-		transform: translateY(calc(var(--y) * (1 - var(--k)))) rotate(calc(var(--r) * (1 - var(--k))));
+		font-weight: calc(300 + 300 * round(var(--l-k)));
+		transform: translateY(calc(var(--l-y) * (1 - var(--l-k)))) rotate(calc(var(--l-r) * (1 - var(--l-k))));
 		animation: jig 0.42s ease-in-out var(--jd) infinite alternate;
 	}
 
@@ -345,10 +346,10 @@ const words = term.map((line) =>
 
 	@keyframes jig {
 		from {
-			rotate: calc(-1 * var(--wobble));
+			rotate: calc(-1 * var(--l-wobble));
 		}
 		to {
-			rotate: var(--wobble);
+			rotate: var(--l-wobble);
 		}
 	}
 
